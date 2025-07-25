@@ -9,9 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/phildougherty/mcp-gmail-go/internal/config"
-	"github.com/phildougherty/mcp-gmail-go/internal/gmail"
-	"github.com/phildougherty/mcp-gmail-go/internal/mcp"
+	"github.com/phildougherty/mcp-google-calendar-go/internal/config"
+	"github.com/phildougherty/mcp-google-calendar-go/internal/calendar"
+	"github.com/phildougherty/mcp-google-calendar-go/internal/mcp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -35,15 +35,15 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Initialize Gmail client
-	gmailClient, err := gmail.NewClient(cfg)
+	// Initialize Calendar client
+	calendarClient, err := calendar.NewClient(cfg)
 	if err != nil {
-		log.Fatalf("Failed to initialize Gmail client: %v", err)
+		log.Fatalf("Failed to initialize Calendar client: %v", err)
 	}
 
 	// Handle auth command
 	if *authCmd {
-		if err := gmailClient.Authenticate(); err != nil {
+		if err := calendarClient.Authenticate(); err != nil {
 			log.Fatalf("Authentication failed: %v", err)
 		}
 		fmt.Println("Authentication successful!")
@@ -51,7 +51,7 @@ func main() {
 	}
 
 	// Create MCP server
-	server := mcp.NewServer(gmailClient, *port)
+	server := mcp.NewServer(calendarClient, *port)
 
 	// Setup graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -66,7 +66,7 @@ func main() {
 	}()
 
 	// Start server
-	logrus.Infof("Starting Gmail MCP server on port %d", *port)
+	logrus.Infof("Starting Google Calendar MCP server on port %d", *port)
 	if err := server.Start(ctx); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}

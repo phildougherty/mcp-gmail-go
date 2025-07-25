@@ -1,4 +1,4 @@
-module github.com/phildougherty/mcp-gmail-go
+module github.com/phildougherty/mcp-google-calendar-go
 
 go 1.21
 

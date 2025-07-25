@@ -8,24 +8,24 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/phildougherty/mcp-gmail-go/internal/gmail"
+	"github.com/phildougherty/mcp-google-calendar-go/internal/calendar"
 	"github.com/sirupsen/logrus"
 )
 
 type Server struct {
-	gmailClient *gmail.Client
-	router      *mux.Router
-	httpServer  *http.Server
-	tools       *ToolRegistry
+	calendarClient *calendar.Client
+	router         *mux.Router
+	httpServer     *http.Server
+	tools          *ToolRegistry
 }
 
-func NewServer(gmailClient *gmail.Client, port int) *Server {
+func NewServer(calendarClient *calendar.Client, port int) *Server {
 	s := &Server{
-		gmailClient: gmailClient,
-		router:      mux.NewRouter(),
+		calendarClient: calendarClient,
+		router:         mux.NewRouter(),
 	}
 
-	s.tools = NewToolRegistry(gmailClient)
+	s.tools = NewToolRegistry(calendarClient)
 	s.setupRoutes()
 	
 	s.httpServer = &http.Server{
@@ -40,12 +40,8 @@ func NewServer(gmailClient *gmail.Client, port int) *Server {
 }
 
 func (s *Server) setupRoutes() {
-	// MCP protocol endpoints
-	s.router.HandleFunc("/mcp/tools", s.handleListTools).Methods("GET")
-	s.router.HandleFunc("/mcp/tools/{name}", s.handleCallTool).Methods("POST")
-	
-	// SSE endpoint for streaming
-	s.router.HandleFunc("/mcp/sse", s.handleSSE).Methods("GET")
+	// MCP JSON-RPC 2.0 endpoint
+	s.router.HandleFunc("/", s.handleMCPRequest).Methods("POST")
 	
 	// Health check
 	s.router.HandleFunc("/health", s.handleHealth).Methods("GET")
@@ -56,8 +52,8 @@ func (s *Server) setupRoutes() {
 
 func (s *Server) Start(ctx context.Context) error {
 	// Check authentication
-	if !s.gmailClient.IsAuthenticated() {
-		return fmt.Errorf("Gmail client not authenticated. Run with -auth flag first")
+	if !s.calendarClient.IsAuthenticated() {
+		return fmt.Errorf("Calendar client not authenticated. Run with -auth flag first")
 	}
 
 	// Start server in goroutine
@@ -78,85 +74,115 @@ func (s *Server) Start(ctx context.Context) error {
 	return s.httpServer.Shutdown(shutdownCtx)
 }
 
-func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
-	tools := s.tools.ListTools()
-	
-	response := map[string]interface{}{
-		"tools": tools,
+type JSONRPCRequest struct {
+	JsonRPC string          `json:"jsonrpc"`
+	ID      interface{}     `json:"id"`
+	Method  string          `json:"method"`
+	Params  json.RawMessage `json:"params,omitempty"`
+}
+
+type JSONRPCResponse struct {
+	JsonRPC string      `json:"jsonrpc"`
+	ID      interface{} `json:"id"`
+	Result  interface{} `json:"result,omitempty"`
+	Error   interface{} `json:"error,omitempty"`
+}
+
+type InitializeParams struct {
+	ProtocolVersion string                 `json:"protocolVersion"`
+	Capabilities    map[string]interface{} `json:"capabilities"`
+	ClientInfo      map[string]interface{} `json:"clientInfo"`
+}
+
+type ToolsListParams struct{}
+
+type ToolsCallParams struct {
+	Name      string                 `json:"name"`
+	Arguments map[string]interface{} `json:"arguments"`
+}
+
+func (s *Server) handleMCPRequest(w http.ResponseWriter, r *http.Request) {
+	var req JSONRPCRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid JSON-RPC request: %v", err), http.StatusBadRequest)
+		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
+
+	var result interface{}
+
+	switch req.Method {
+	case "initialize":
+		result = map[string]interface{}{
+			"protocolVersion": "2024-11-05",
+			"capabilities": map[string]interface{}{
+				"tools": map[string]interface{}{},
+				"resources": map[string]interface{}{},
+			},
+			"serverInfo": map[string]interface{}{
+				"name":    "google-calendar-mcp-server",
+				"version": "1.0.0",
+			},
+		}
+	case "notifications/initialized":
+		// No response needed for notifications
+		w.WriteHeader(http.StatusOK)
+		return
+	case "tools/list":
+		tools := s.tools.ListTools()
+		result = map[string]interface{}{
+			"tools": tools,
+		}
+	case "tools/call":
+		var params ToolsCallParams
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			s.sendJSONRPCError(w, req.ID, -32602, fmt.Sprintf("Invalid params: %v", err))
+			return
+		}
+		// Convert arguments to json.RawMessage
+		argsBytes, err := json.Marshal(params.Arguments)
+		if err != nil {
+			s.sendJSONRPCError(w, req.ID, -32602, fmt.Sprintf("Invalid arguments: %v", err))
+			return
+		}
+		var toolErr error
+		result, toolErr = s.tools.CallTool(params.Name, json.RawMessage(argsBytes))
+		if toolErr != nil {
+			s.sendJSONRPCError(w, req.ID, -32603, fmt.Sprintf("Tool call failed: %v", toolErr))
+			return
+		}
+	default:
+		s.sendJSONRPCError(w, req.ID, -32601, fmt.Sprintf("Method not found: %s", req.Method))
+		return
+	}
+
+	response := JSONRPCResponse{
+		JsonRPC: "2.0",
+		ID:      req.ID,
+		Result:  result,
+	}
+
 	json.NewEncoder(w).Encode(response)
 }
 
-func (s *Server) handleCallTool(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	toolName := vars["name"]
-	
-	var request ToolCallRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, fmt.Sprintf("Invalid request body: %v", err), http.StatusBadRequest)
-		return
+func (s *Server) sendJSONRPCError(w http.ResponseWriter, id interface{}, code int, message string) {
+	response := JSONRPCResponse{
+		JsonRPC: "2.0",
+		ID:      id,
+		Error: map[string]interface{}{
+			"code":    code,
+			"message": message,
+		},
 	}
-	
-	result, err := s.tools.CallTool(toolName, request.Arguments)
-	if err != nil {
-		logrus.Errorf("Tool call failed: %v", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"content": []map[string]interface{}{
-				{
-					"type": "text",
-					"text": fmt.Sprintf("Error: %v", err),
-				},
-			},
-			"isError": true,
-		})
-		return
-	}
-	
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
-}
-
-func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
-	// Set SSE headers
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Cache-Control")
-
-	// Send initial connection message
-	fmt.Fprintf(w, "data: {\"type\":\"connection\",\"status\":\"connected\"}\n\n")
-	
-	if f, ok := w.(http.Flusher); ok {
-		f.Flush()
-	}
-
-	// Keep connection alive
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	ctx := r.Context()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			fmt.Fprintf(w, "data: {\"type\":\"ping\"}\n\n")
-			if f, ok := w.(http.Flusher); ok {
-				f.Flush()
-			}
-		}
-	}
+	w.WriteHeader(http.StatusOK) // JSON-RPC errors still return 200
+	json.NewEncoder(w).Encode(response)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	status := map[string]interface{}{
 		"status":        "healthy",
-		"authenticated": s.gmailClient.IsAuthenticated(),
+		"authenticated": s.calendarClient.IsAuthenticated(),
 		"timestamp":     time.Now().UTC(),
 	}
 	

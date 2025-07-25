@@ -1,4 +1,4 @@
-package gmail
+package calendar
 
 import (
 	"context"
@@ -10,15 +10,15 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/phildougherty/mcp-gmail-go/internal/config"
+	"github.com/phildougherty/mcp-google-calendar-go/internal/config"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/gmail/v1"
+	"google.golang.org/api/calendar/v3"
 	"google.golang.org/api/option"
 )
 
 type Client struct {
-	service *gmail.Service
+	service *calendar.Service
 	config  *config.Config
 	oauth   *oauth2.Config
 }
@@ -28,8 +28,17 @@ func NewClient(cfg *config.Config) (*Client, error) {
 		ClientID:     cfg.OAuth.ClientID,
 		ClientSecret: cfg.OAuth.ClientSecret,
 		RedirectURL:  cfg.OAuth.RedirectURL,
-		Scopes:       []string{gmail.GmailModifyScope},
-		Endpoint:     google.Endpoint,
+		Scopes: []string{
+			// Required scope
+			"https://www.googleapis.com/auth/userinfo.email",
+			
+			// Calendar scopes
+			calendar.CalendarScope,
+			calendar.CalendarEventsScope,
+			calendar.CalendarReadonlyScope,
+			calendar.CalendarEventsReadonlyScope,
+		},
+		Endpoint: google.Endpoint,
 	}
 
 	client := &Client{
@@ -56,18 +65,27 @@ func (c *Client) loadCredentials() error {
 		return err
 	}
 
+	// Check if token needs refresh
+	if token.Expiry.Before(time.Now()) && token.RefreshToken != "" {
+		if err := c.refreshToken(&token); err != nil {
+			return fmt.Errorf("failed to refresh token: %w", err)
+		}
+	}
+
 	httpClient := c.oauth.Client(context.Background(), &token)
-	service, err := gmail.NewService(context.Background(), option.WithHTTPClient(httpClient))
+	
+	// Initialize Calendar service
+	service, err := calendar.NewService(context.Background(), option.WithHTTPClient(httpClient))
 	if err != nil {
 		return err
 	}
-
 	c.service = service
+
 	return nil
 }
 
 func (c *Client) Authenticate() error {
-	authURL := c.oauth.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	authURL := c.oauth.AuthCodeURL("state-token", oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "consent"))
 	
 	fmt.Printf("Visit this URL to authorize the application: %s\n", authURL)
 	
@@ -156,17 +174,40 @@ func (c *Client) handleAuthCallback() error {
 
 	// Initialize service
 	httpClient := c.oauth.Client(context.Background(), token)
-	service, err := gmail.NewService(context.Background(), option.WithHTTPClient(httpClient))
+	
+	service, err := calendar.NewService(context.Background(), option.WithHTTPClient(httpClient))
 	if err != nil {
-		return fmt.Errorf("failed to create Gmail service: %w", err)
+		return fmt.Errorf("failed to create Calendar service: %w", err)
 	}
-
 	c.service = service
+
 	return nil
 }
 
-func (c *Client) Service() *gmail.Service {
+func (c *Client) Service() *calendar.Service {
 	return c.service
+}
+
+func (c *Client) refreshToken(token *oauth2.Token) error {
+	tokenSource := c.oauth.TokenSource(context.Background(), token)
+	newToken, err := tokenSource.Token()
+	if err != nil {
+		return err
+	}
+
+	// Save the refreshed token
+	data, err := json.Marshal(newToken)
+	if err != nil {
+		return fmt.Errorf("failed to marshal refreshed token: %w", err)
+	}
+
+	if err := os.WriteFile(c.config.CredentialsPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to save refreshed token: %w", err)
+	}
+
+	// Update the token in place
+	*token = *newToken
+	return nil
 }
 
 func (c *Client) IsAuthenticated() bool {

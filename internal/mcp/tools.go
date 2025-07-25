@@ -4,19 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/phildougherty/mcp-gmail-go/internal/gmail"
-	"github.com/phildougherty/mcp-gmail-go/internal/types"
+	"github.com/phildougherty/mcp-google-calendar-go/internal/calendar"
+	"github.com/phildougherty/mcp-google-calendar-go/internal/types"
 )
 
 type ToolRegistry struct {
-	gmailClient *gmail.Client
-	tools       map[string]Tool
+	calendarClient *calendar.Client
+	tools          map[string]Tool
 }
 
-func NewToolRegistry(gmailClient *gmail.Client) *ToolRegistry {
+func NewToolRegistry(calendarClient *calendar.Client) *ToolRegistry {
 	registry := &ToolRegistry{
-		gmailClient: gmailClient,
-		tools:       make(map[string]Tool),
+		calendarClient: calendarClient,
+		tools:          make(map[string]Tool),
 	}
 	
 	registry.registerTools()
@@ -24,93 +24,64 @@ func NewToolRegistry(gmailClient *gmail.Client) *ToolRegistry {
 }
 
 func (r *ToolRegistry) registerTools() {
-	r.tools["send_email"] = Tool{
-		Name:        "send_email",
-		Description: "Sends a new email",
-		InputSchema: SendEmailSchema,
+	r.tools["create_event"] = Tool{
+		Name:        "create_event",
+		Description: "Creates a new calendar event",
+		InputSchema: CreateEventSchema,
 	}
 	
-	r.tools["draft_email"] = Tool{
-		Name:        "draft_email",
-		Description: "Creates a draft email",
-		InputSchema: SendEmailSchema,
+	r.tools["get_event"] = Tool{
+		Name:        "get_event",
+		Description: "Retrieves a specific calendar event",
+		InputSchema: GetEventSchema,
 	}
 	
-	r.tools["read_email"] = Tool{
-		Name:        "read_email",
-		Description: "Retrieves the content of a specific email",
-		InputSchema: ReadEmailSchema,
+	r.tools["update_event"] = Tool{
+		Name:        "update_event",
+		Description: "Updates an existing calendar event",
+		InputSchema: UpdateEventSchema,
 	}
 	
-	r.tools["search_emails"] = Tool{
-		Name:        "search_emails",
-		Description: "Searches for emails using Gmail search syntax",
-		InputSchema: SearchEmailsSchema,
+	r.tools["delete_event"] = Tool{
+		Name:        "delete_event",
+		Description: "Deletes a calendar event",
+		InputSchema: DeleteEventSchema,
 	}
 	
-	r.tools["modify_email"] = Tool{
-		Name:        "modify_email",
-		Description: "Modifies email labels (move to different folders)",
-		InputSchema: ModifyEmailSchema,
+	r.tools["list_events"] = Tool{
+		Name:        "list_events",
+		Description: "Lists calendar events",
+		InputSchema: ListEventsSchema,
 	}
 	
-	r.tools["delete_email"] = Tool{
-		Name:        "delete_email",
-		Description: "Permanently deletes an email",
-		InputSchema: DeleteEmailSchema,
+	r.tools["list_calendars"] = Tool{
+		Name:        "list_calendars",
+		Description: "Lists available calendars",
+		InputSchema: ListCalendarsSchema,
 	}
 	
-	r.tools["list_email_labels"] = Tool{
-		Name:        "list_email_labels",
-		Description: "Retrieves all available Gmail labels",
-		InputSchema: ListEmailLabelsSchema,
+	r.tools["get_calendar"] = Tool{
+		Name:        "get_calendar",
+		Description: "Retrieves a specific calendar",
+		InputSchema: GetCalendarSchema,
 	}
 	
-	r.tools["create_label"] = Tool{
-		Name:        "create_label",
-		Description: "Creates a new Gmail label",
-		InputSchema: CreateLabelSchema,
+	r.tools["create_calendar"] = Tool{
+		Name:        "create_calendar",
+		Description: "Creates a new calendar",
+		InputSchema: CreateCalendarSchema,
 	}
 	
-	r.tools["get_contacts"] = Tool{
-		Name:        "get_contacts",
-		Description: "Retrieves Gmail contacts",
-		InputSchema: map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"maxResults": map[string]interface{}{
-					"type":        "integer",
-					"description": "Maximum number of contacts to return",
-				},
-				"query": map[string]interface{}{
-					"type":        "string",
-					"description": "Search query for contacts",
-				},
-			},
-		},
+	r.tools["delete_calendar"] = Tool{
+		Name:        "delete_calendar",
+		Description: "Deletes a calendar",
+		InputSchema: DeleteCalendarSchema,
 	}
 	
-	r.tools["email_analytics"] = Tool{
-		Name:        "email_analytics",
-		Description: "Get email analytics and statistics",
-		InputSchema: map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"days": map[string]interface{}{
-					"type":        "integer",
-					"description": "Number of days to analyze (default: 30)",
-				},
-				"query": map[string]interface{}{
-					"type":        "string",
-					"description": "Gmail search query to filter emails",
-				},
-				"groupBy": map[string]interface{}{
-					"type":        "string",
-					"enum":        []string{"sender", "label", "day"},
-					"description": "How to group the analytics results",
-				},
-			},
-		},
+	r.tools["get_freebusy"] = Tool{
+		Name:        "get_freebusy",
+		Description: "Gets free/busy information for calendars",
+		InputSchema: FreeBusySchema,
 	}
 }
 
@@ -129,232 +100,43 @@ func (r *ToolRegistry) CallTool(name string, args json.RawMessage) (*ToolResult,
 	}
 	
 	switch name {
-	case "send_email":
-		return r.handleSendEmail(args)
-	case "draft_email":
-		return r.handleDraftEmail(args)
-	case "read_email":
-		return r.handleReadEmail(args)
-	case "search_emails":
-		return r.handleSearchEmails(args)
-	case "modify_email":
-		return r.handleModifyEmail(args)
-	case "delete_email":
-		return r.handleDeleteEmail(args)
-	case "list_email_labels":
-		return r.handleListLabels(args)
-	case "create_label":
-		return r.handleCreateLabel(args)
-	case "get_contacts":
-		return r.handleGetContacts(args)
-	case "email_analytics":
-		return r.handleEmailAnalytics(args)
+	case "create_event":
+		return r.handleCreateEvent(args)
+	case "get_event":
+		return r.handleGetEvent(args)
+	case "update_event":
+		return r.handleUpdateEvent(args)
+	case "delete_event":
+		return r.handleDeleteEvent(args)
+	case "list_events":
+		return r.handleListEvents(args)
+	case "list_calendars":
+		return r.handleListCalendars(args)
+	case "get_calendar":
+		return r.handleGetCalendar(args)
+	case "create_calendar":
+		return r.handleCreateCalendar(args)
+	case "delete_calendar":
+		return r.handleDeleteCalendar(args)
+	case "get_freebusy":
+		return r.handleGetFreeBusy(args)
 	default:
 		return nil, fmt.Errorf("tool implementation not found: %s", name)
 	}
 }
 
-func (r *ToolRegistry) handleSendEmail(args json.RawMessage) (*ToolResult, error) {
-	var sendArgs types.SendEmailArgs
-	if err := json.Unmarshal(args, &sendArgs); err != nil {
-		return nil, fmt.Errorf("invalid arguments: %w", err)
-	}
-	
-	messageID, err := r.gmailClient.SendEmail(&sendArgs)
-	if err != nil {
-		return &ToolResult{
-			Content: []Content{{
-				Type: "text",
-				Text: fmt.Sprintf("Failed to send email: %v", err),
-			}},
-			IsError: true,
-		}, nil
-	}
-	
-	return &ToolResult{
-		Content: []Content{{
-			Type: "text",
-			Text: fmt.Sprintf("Email sent successfully with ID: %s", messageID),
-		}},
-	}, nil
-}
-
-func (r *ToolRegistry) handleDraftEmail(args json.RawMessage) (*ToolResult, error) {
-	var draftArgs types.SendEmailArgs
-	if err := json.Unmarshal(args, &draftArgs); err != nil {
-		return nil, fmt.Errorf("invalid arguments: %w", err)
-	}
-	
-	draftID, err := r.gmailClient.CreateDraft(&draftArgs)
-	if err != nil {
-		return &ToolResult{
-			Content: []Content{{
-				Type: "text",
-				Text: fmt.Sprintf("Failed to create draft: %v", err),
-			}},
-			IsError: true,
-		}, nil
-	}
-	
-	return &ToolResult{
-		Content: []Content{{
-			Type: "text",
-			Text: fmt.Sprintf("Draft created successfully with ID: %s", draftID),
-		}},
-	}, nil
-}
-
-func (r *ToolRegistry) handleReadEmail(args json.RawMessage) (*ToolResult, error) {
-	var readArgs types.ReadEmailArgs
-	if err := json.Unmarshal(args, &readArgs); err != nil {
-		return nil, fmt.Errorf("invalid arguments: %w", err)
-	}
-	
-	message, err := r.gmailClient.ReadEmail(readArgs.MessageID)
-	if err != nil {
-		return &ToolResult{
-			Content: []Content{{
-				Type: "text",
-				Text: fmt.Sprintf("Failed to read email: %v", err),
-			}},
-			IsError: true,
-		}, nil
-	}
-	
-	content := fmt.Sprintf("Thread ID: %s\nSubject: %s\nFrom: %s\nTo: %s\nDate: %s\n\n%s",
-		message.ThreadID, message.Subject, message.From, message.To, message.Date, message.Body)
-	
-	return &ToolResult{
-		Content: []Content{{
-			Type: "text",
-			Text: content,
-		}},
-	}, nil
-}
-
-func (r *ToolRegistry) handleSearchEmails(args json.RawMessage) (*ToolResult, error) {
-	var searchArgs types.SearchEmailsArgs
-	if err := json.Unmarshal(args, &searchArgs); err != nil {
-		return nil, fmt.Errorf("invalid arguments: %w", err)
-	}
-	
-	if searchArgs.MaxResults == 0 {
-		searchArgs.MaxResults = 10
-	}
-	
-	messages, err := r.gmailClient.SearchEmails(searchArgs.Query, searchArgs.MaxResults)
-	if err != nil {
-		return &ToolResult{
-			Content: []Content{{
-				Type: "text",
-				Text: fmt.Sprintf("Failed to search emails: %v", err),
-			}},
-			IsError: true,
-		}, nil
-	}
-	
-	var result string
-	for _, msg := range messages {
-		result += fmt.Sprintf("ID: %s\nSubject: %s\nFrom: %s\nDate: %s\n\n", 
-			msg.ID, msg.Subject, msg.From, msg.Date)
-	}
-	
-	return &ToolResult{
-		Content: []Content{{
-			Type: "text",
-			Text: result,
-		}},
-	}, nil
-}
-
-func (r *ToolRegistry) handleModifyEmail(args json.RawMessage) (*ToolResult, error) {
-	var modifyArgs types.ModifyEmailArgs
-	if err := json.Unmarshal(args, &modifyArgs); err != nil {
-		return nil, fmt.Errorf("invalid arguments: %w", err)
-	}
-	
-	err := r.gmailClient.ModifyEmail(modifyArgs.MessageID, modifyArgs.AddLabelIDs, modifyArgs.RemoveLabelIDs)
-	if err != nil {
-		return &ToolResult{
-			Content: []Content{{
-				Type: "text",
-				Text: fmt.Sprintf("Failed to modify email: %v", err),
-			}},
-			IsError: true,
-		}, nil
-	}
-	
-	return &ToolResult{
-		Content: []Content{{
-			Type: "text",
-			Text: fmt.Sprintf("Email %s labels updated successfully", modifyArgs.MessageID),
-		}},
-	}, nil
-}
-
-func (r *ToolRegistry) handleDeleteEmail(args json.RawMessage) (*ToolResult, error) {
-	var deleteArgs types.DeleteEmailArgs
-	if err := json.Unmarshal(args, &deleteArgs); err != nil {
-		return nil, fmt.Errorf("invalid arguments: %w", err)
-	}
-	
-	err := r.gmailClient.DeleteEmail(deleteArgs.MessageID)
-	if err != nil {
-		return &ToolResult{
-			Content: []Content{{
-				Type: "text",
-				Text: fmt.Sprintf("Failed to delete email: %v", err),
-			}},
-			IsError: true,
-		}, nil
-	}
-	
-	return &ToolResult{
-		Content: []Content{{
-			Type: "text",
-			Text: fmt.Sprintf("Email %s deleted successfully", deleteArgs.MessageID),
-		}},
-	}, nil
-}
-
-func (r *ToolRegistry) handleListLabels(args json.RawMessage) (*ToolResult, error) {
-	labels, err := r.gmailClient.ListLabels()
-	if err != nil {
-		return &ToolResult{
-			Content: []Content{{
-				Type: "text",
-				Text: fmt.Sprintf("Failed to list labels: %v", err),
-			}},
-			IsError: true,
-		}, nil
-	}
-	
-	var result string
-	for _, label := range labels {
-		result += fmt.Sprintf("ID: %s\nName: %s\nType: %s\n\n", 
-			label.ID, label.Name, label.Type)
-	}
-	
-	return &ToolResult{
-		Content: []Content{{
-			Type: "text",
-			Text: result,
-		}},
-	}, nil
-}
-
-func (r *ToolRegistry) handleCreateLabel(args json.RawMessage) (*ToolResult, error) {
-	var createArgs types.CreateLabelArgs
+func (r *ToolRegistry) handleCreateEvent(args json.RawMessage) (*ToolResult, error) {
+	var createArgs types.CreateEventArgs
 	if err := json.Unmarshal(args, &createArgs); err != nil {
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 	
-	labelID, err := r.gmailClient.CreateLabel(createArgs.Name)
+	eventID, err := r.calendarClient.CreateEvent(&createArgs)
 	if err != nil {
 		return &ToolResult{
 			Content: []Content{{
 				Type: "text",
-				Text: fmt.Sprintf("Failed to create label: %v", err),
+				Text: fmt.Sprintf("Failed to create event: %v", err),
 			}},
 			IsError: true,
 		}, nil
@@ -363,61 +145,52 @@ func (r *ToolRegistry) handleCreateLabel(args json.RawMessage) (*ToolResult, err
 	return &ToolResult{
 		Content: []Content{{
 			Type: "text",
-			Text: fmt.Sprintf("Label created successfully with ID: %s", labelID),
+			Text: fmt.Sprintf("Event created successfully with ID: %s", eventID),
 		}},
 	}, nil
 }
 
-func (r *ToolRegistry) handleGetContacts(args json.RawMessage) (*ToolResult, error) {
-	var contactArgs types.GetContactsArgs
-	if err := json.Unmarshal(args, &contactArgs); err != nil {
+func (r *ToolRegistry) handleGetEvent(args json.RawMessage) (*ToolResult, error) {
+	var getArgs struct {
+		CalendarID string `json:"calendarId,omitempty"`
+		EventID    string `json:"eventId"`
+	}
+	if err := json.Unmarshal(args, &getArgs); err != nil {
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 	
-	if contactArgs.MaxResults == 0 {
-		contactArgs.MaxResults = 50
-	}
-	
-	contacts, err := r.gmailClient.GetContacts(contactArgs.MaxResults, contactArgs.Query)
+	event, err := r.calendarClient.GetEvent(getArgs.CalendarID, getArgs.EventID)
 	if err != nil {
 		return &ToolResult{
 			Content: []Content{{
 				Type: "text",
-				Text: fmt.Sprintf("Failed to get contacts: %v", err),
+				Text: fmt.Sprintf("Failed to get event: %v", err),
 			}},
 			IsError: true,
 		}, nil
 	}
 	
-	var result string
-	for _, contact := range contacts {
-		result += fmt.Sprintf("Name: %s\nEmail: %s\n\n", contact.Name, contact.Email)
-	}
-	
+	eventJSON, _ := json.MarshalIndent(event, "", "  ")
 	return &ToolResult{
 		Content: []Content{{
 			Type: "text",
-			Text: result,
+			Text: string(eventJSON),
 		}},
 	}, nil
 }
 
-func (r *ToolRegistry) handleEmailAnalytics(args json.RawMessage) (*ToolResult, error) {
-	var analyticsArgs types.EmailAnalyticsArgs
-	if err := json.Unmarshal(args, &analyticsArgs); err != nil {
+func (r *ToolRegistry) handleUpdateEvent(args json.RawMessage) (*ToolResult, error) {
+	var updateArgs types.UpdateEventArgs
+	if err := json.Unmarshal(args, &updateArgs); err != nil {
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 	
-	if analyticsArgs.Days == 0 {
-		analyticsArgs.Days = 30
-	}
-	
-	analytics, err := r.gmailClient.GetEmailAnalytics(analyticsArgs.Days, analyticsArgs.Query, analyticsArgs.GroupBy)
+	err := r.calendarClient.UpdateEvent(&updateArgs)
 	if err != nil {
 		return &ToolResult{
 			Content: []Content{{
 				Type: "text",
-				Text: fmt.Sprintf("Failed to get email analytics: %v", err),
+				Text: fmt.Sprintf("Failed to update event: %v", err),
 			}},
 			IsError: true,
 		}, nil
@@ -426,7 +199,189 @@ func (r *ToolRegistry) handleEmailAnalytics(args json.RawMessage) (*ToolResult, 
 	return &ToolResult{
 		Content: []Content{{
 			Type: "text",
-			Text: analytics,
+			Text: fmt.Sprintf("Event %s updated successfully", updateArgs.EventID),
+		}},
+	}, nil
+}
+
+func (r *ToolRegistry) handleDeleteEvent(args json.RawMessage) (*ToolResult, error) {
+	var deleteArgs types.DeleteEventArgs
+	if err := json.Unmarshal(args, &deleteArgs); err != nil {
+		return nil, fmt.Errorf("invalid arguments: %w", err)
+	}
+	
+	err := r.calendarClient.DeleteEvent(deleteArgs.CalendarID, deleteArgs.EventID)
+	if err != nil {
+		return &ToolResult{
+			Content: []Content{{
+				Type: "text",
+				Text: fmt.Sprintf("Failed to delete event: %v", err),
+			}},
+			IsError: true,
+		}, nil
+	}
+	
+	return &ToolResult{
+		Content: []Content{{
+			Type: "text",
+			Text: fmt.Sprintf("Event %s deleted successfully", deleteArgs.EventID),
+		}},
+	}, nil
+}
+
+func (r *ToolRegistry) handleListEvents(args json.RawMessage) (*ToolResult, error) {
+	var listArgs types.ListEventsArgs
+	if err := json.Unmarshal(args, &listArgs); err != nil {
+		return nil, fmt.Errorf("invalid arguments: %w", err)
+	}
+	
+	if listArgs.MaxResults == 0 {
+		listArgs.MaxResults = 10
+	}
+	
+	events, err := r.calendarClient.ListEvents(&listArgs)
+	if err != nil {
+		return &ToolResult{
+			Content: []Content{{
+				Type: "text",
+				Text: fmt.Sprintf("Failed to list events: %v", err),
+			}},
+			IsError: true,
+		}, nil
+	}
+	
+	eventsJSON, _ := json.MarshalIndent(events, "", "  ")
+	return &ToolResult{
+		Content: []Content{{
+			Type: "text",
+			Text: string(eventsJSON),
+		}},
+	}, nil
+}
+
+func (r *ToolRegistry) handleListCalendars(args json.RawMessage) (*ToolResult, error) {
+	calendars, err := r.calendarClient.ListCalendars()
+	if err != nil {
+		return &ToolResult{
+			Content: []Content{{
+				Type: "text",
+				Text: fmt.Sprintf("Failed to list calendars: %v", err),
+			}},
+			IsError: true,
+		}, nil
+	}
+	
+	calendarsJSON, _ := json.MarshalIndent(calendars, "", "  ")
+	return &ToolResult{
+		Content: []Content{{
+			Type: "text",
+			Text: string(calendarsJSON),
+		}},
+	}, nil
+}
+
+func (r *ToolRegistry) handleGetCalendar(args json.RawMessage) (*ToolResult, error) {
+	var getArgs struct {
+		CalendarID string `json:"calendarId,omitempty"`
+	}
+	if err := json.Unmarshal(args, &getArgs); err != nil {
+		return nil, fmt.Errorf("invalid arguments: %w", err)
+	}
+	
+	calendar, err := r.calendarClient.GetCalendar(getArgs.CalendarID)
+	if err != nil {
+		return &ToolResult{
+			Content: []Content{{
+				Type: "text",
+				Text: fmt.Sprintf("Failed to get calendar: %v", err),
+			}},
+			IsError: true,
+		}, nil
+	}
+	
+	calendarJSON, _ := json.MarshalIndent(calendar, "", "  ")
+	return &ToolResult{
+		Content: []Content{{
+			Type: "text",
+			Text: string(calendarJSON),
+		}},
+	}, nil
+}
+
+func (r *ToolRegistry) handleCreateCalendar(args json.RawMessage) (*ToolResult, error) {
+	var createArgs types.CreateCalendarArgs
+	if err := json.Unmarshal(args, &createArgs); err != nil {
+		return nil, fmt.Errorf("invalid arguments: %w", err)
+	}
+	
+	calendarID, err := r.calendarClient.CreateCalendar(&createArgs)
+	if err != nil {
+		return &ToolResult{
+			Content: []Content{{
+				Type: "text",
+				Text: fmt.Sprintf("Failed to create calendar: %v", err),
+			}},
+			IsError: true,
+		}, nil
+	}
+	
+	return &ToolResult{
+		Content: []Content{{
+			Type: "text",
+			Text: fmt.Sprintf("Calendar created successfully with ID: %s", calendarID),
+		}},
+	}, nil
+}
+
+func (r *ToolRegistry) handleDeleteCalendar(args json.RawMessage) (*ToolResult, error) {
+	var deleteArgs struct {
+		CalendarID string `json:"calendarId"`
+	}
+	if err := json.Unmarshal(args, &deleteArgs); err != nil {
+		return nil, fmt.Errorf("invalid arguments: %w", err)
+	}
+	
+	err := r.calendarClient.DeleteCalendar(deleteArgs.CalendarID)
+	if err != nil {
+		return &ToolResult{
+			Content: []Content{{
+				Type: "text",
+				Text: fmt.Sprintf("Failed to delete calendar: %v", err),
+			}},
+			IsError: true,
+		}, nil
+	}
+	
+	return &ToolResult{
+		Content: []Content{{
+			Type: "text",
+			Text: fmt.Sprintf("Calendar %s deleted successfully", deleteArgs.CalendarID),
+		}},
+	}, nil
+}
+
+func (r *ToolRegistry) handleGetFreeBusy(args json.RawMessage) (*ToolResult, error) {
+	var freeBusyArgs types.FreeBusyArgs
+	if err := json.Unmarshal(args, &freeBusyArgs); err != nil {
+		return nil, fmt.Errorf("invalid arguments: %w", err)
+	}
+	
+	response, err := r.calendarClient.GetFreeBusy(&freeBusyArgs)
+	if err != nil {
+		return &ToolResult{
+			Content: []Content{{
+				Type: "text",
+				Text: fmt.Sprintf("Failed to get free/busy: %v", err),
+			}},
+			IsError: true,
+		}, nil
+	}
+	
+	responseJSON, _ := json.MarshalIndent(response, "", "  ")
+	return &ToolResult{
+		Content: []Content{{
+			Type: "text",
+			Text: string(responseJSON),
 		}},
 	}, nil
 }

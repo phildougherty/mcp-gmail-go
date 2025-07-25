@@ -26,142 +26,227 @@ type Content struct {
 	Text string `json:"text"`
 }
 
-// InputSchema definitions for tools
+// InputSchema definitions for calendar tools
 var (
-	SendEmailSchema = map[string]interface{}{
+	CreateEventSchema = map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
-			"to": map[string]interface{}{
+			"summary": map[string]interface{}{
+				"type":        "string",
+				"description": "Event title/summary",
+			},
+			"description": map[string]interface{}{
+				"type":        "string",
+				"description": "Event description",
+			},
+			"location": map[string]interface{}{
+				"type":        "string",
+				"description": "Event location",
+			},
+			"startTime": map[string]interface{}{
+				"type":        "string",
+				"description": "Start time in RFC3339 format (e.g., '2023-12-01T10:00:00Z')",
+			},
+			"endTime": map[string]interface{}{
+				"type":        "string",
+				"description": "End time in RFC3339 format (e.g., '2023-12-01T11:00:00Z')",
+			},
+			"startDate": map[string]interface{}{
+				"type":        "string",
+				"description": "Start date for all-day events (YYYY-MM-DD format)",
+			},
+			"endDate": map[string]interface{}{
+				"type":        "string",
+				"description": "End date for all-day events (YYYY-MM-DD format)",
+			},
+			"timeZone": map[string]interface{}{
+				"type":        "string",
+				"description": "Time zone (e.g., 'America/New_York')",
+			},
+			"allDay": map[string]interface{}{
+				"type":        "boolean",
+				"description": "Whether this is an all-day event",
+			},
+			"calendarId": map[string]interface{}{
+				"type":        "string",
+				"description": "Calendar ID (defaults to primary calendar)",
+			},
+			"attendees": map[string]interface{}{
 				"type": "array",
 				"items": map[string]interface{}{
 					"type": "string",
 				},
-				"description": "List of recipient email addresses",
-			},
-			"subject": map[string]interface{}{
-				"type":        "string",
-				"description": "Email subject",
-			},
-			"body": map[string]interface{}{
-				"type":        "string",
-				"description": "Email body content",
-			},
-			"htmlBody": map[string]interface{}{
-				"type":        "string",
-				"description": "HTML version of the email body",
-			},
-			"cc": map[string]interface{}{
-				"type": "array",
-				"items": map[string]interface{}{
-					"type": "string",
-				},
-				"description": "List of CC recipients",
-			},
-			"bcc": map[string]interface{}{
-				"type": "array",
-				"items": map[string]interface{}{
-					"type": "string",
-				},
-				"description": "List of BCC recipients",
-			},
-			"threadId": map[string]interface{}{
-				"type":        "string",
-				"description": "Thread ID to reply to",
-			},
-			"inReplyTo": map[string]interface{}{
-				"type":        "string",
-				"description": "Message ID being replied to",
+				"description": "List of attendee email addresses",
 			},
 		},
-		"required": []string{"to", "subject", "body"},
+		"required": []string{"summary"},
 	}
 
-	ReadEmailSchema = map[string]interface{}{
+	GetEventSchema = map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
-			"messageId": map[string]interface{}{
+			"eventId": map[string]interface{}{
 				"type":        "string",
-				"description": "ID of the email message to retrieve",
+				"description": "ID of the event to retrieve",
+			},
+			"calendarId": map[string]interface{}{
+				"type":        "string",
+				"description": "Calendar ID (defaults to primary calendar)",
 			},
 		},
-		"required": []string{"messageId"},
+		"required": []string{"eventId"},
 	}
 
-	SearchEmailsSchema = map[string]interface{}{
+	UpdateEventSchema = map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
-			"query": map[string]interface{}{
+			"eventId": map[string]interface{}{
 				"type":        "string",
-				"description": "Gmail search query (e.g., 'from:example@gmail.com')",
+				"description": "ID of the event to update",
+			},
+			"calendarId": map[string]interface{}{
+				"type":        "string",
+				"description": "Calendar ID (defaults to primary calendar)",
+			},
+			"summary": map[string]interface{}{
+				"type":        "string",
+				"description": "Event title/summary",
+			},
+			"description": map[string]interface{}{
+				"type":        "string",
+				"description": "Event description",
+			},
+			"location": map[string]interface{}{
+				"type":        "string",
+				"description": "Event location",
+			},
+			"startTime": map[string]interface{}{
+				"type":        "string",
+				"description": "Start time in RFC3339 format",
+			},
+			"endTime": map[string]interface{}{
+				"type":        "string",
+				"description": "End time in RFC3339 format",
+			},
+			"timeZone": map[string]interface{}{
+				"type":        "string",
+				"description": "Time zone",
+			},
+		},
+		"required": []string{"eventId"},
+	}
+
+	DeleteEventSchema = map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"eventId": map[string]interface{}{
+				"type":        "string",
+				"description": "ID of the event to delete",
+			},
+			"calendarId": map[string]interface{}{
+				"type":        "string",
+				"description": "Calendar ID (defaults to primary calendar)",
+			},
+		},
+		"required": []string{"eventId"},
+	}
+
+	ListEventsSchema = map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"calendarId": map[string]interface{}{
+				"type":        "string",
+				"description": "Calendar ID (defaults to primary calendar)",
+			},
+			"timeMin": map[string]interface{}{
+				"type":        "string",
+				"description": "Lower bound for event start time (RFC3339 format)",
+			},
+			"timeMax": map[string]interface{}{
+				"type":        "string",
+				"description": "Upper bound for event start time (RFC3339 format)",
 			},
 			"maxResults": map[string]interface{}{
 				"type":        "integer",
-				"description": "Maximum number of results to return",
+				"description": "Maximum number of events to return",
+			},
+			"query": map[string]interface{}{
+				"type":        "string",
+				"description": "Free text search terms",
+			},
+			"orderBy": map[string]interface{}{
+				"type":        "string",
+				"enum":        []string{"startTime", "updated"},
+				"description": "Order of the events",
 			},
 		},
-		"required": []string{"query"},
 	}
 
-	ModifyEmailSchema = map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{
-			"messageId": map[string]interface{}{
-				"type":        "string",
-				"description": "ID of the email message to modify",
-			},
-			"addLabelIds": map[string]interface{}{
-				"type": "array",
-				"items": map[string]interface{}{
-					"type": "string",
-				},
-				"description": "List of label IDs to add to the message",
-			},
-			"removeLabelIds": map[string]interface{}{
-				"type": "array",
-				"items": map[string]interface{}{
-					"type": "string",
-				},
-				"description": "List of label IDs to remove from the message",
-			},
-		},
-		"required": []string{"messageId"},
-	}
-
-	DeleteEmailSchema = map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{
-			"messageId": map[string]interface{}{
-				"type":        "string",
-				"description": "ID of the email message to delete",
-			},
-		},
-		"required": []string{"messageId"},
-	}
-
-	CreateLabelSchema = map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{
-			"name": map[string]interface{}{
-				"type":        "string",
-				"description": "Name for the new label",
-			},
-			"messageListVisibility": map[string]interface{}{
-				"type":        "string",
-				"enum":        []string{"show", "hide"},
-				"description": "Whether to show or hide the label in the message list",
-			},
-			"labelListVisibility": map[string]interface{}{
-				"type":        "string",
-				"enum":        []string{"labelShow", "labelShowIfUnread", "labelHide"},
-				"description": "Visibility of the label in the label list",
-			},
-		},
-		"required": []string{"name"},
-	}
-
-	ListEmailLabelsSchema = map[string]interface{}{
+	ListCalendarsSchema = map[string]interface{}{
 		"type":        "object",
 		"properties":  map[string]interface{}{},
-		"description": "Retrieves all available Gmail labels",
+		"description": "Lists all calendars accessible to the user",
+	}
+
+	GetCalendarSchema = map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"calendarId": map[string]interface{}{
+				"type":        "string",
+				"description": "Calendar ID (defaults to primary calendar)",
+			},
+		},
+	}
+
+	CreateCalendarSchema = map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"summary": map[string]interface{}{
+				"type":        "string",
+				"description": "Calendar title/name",
+			},
+			"description": map[string]interface{}{
+				"type":        "string",
+				"description": "Calendar description",
+			},
+			"timeZone": map[string]interface{}{
+				"type":        "string",
+				"description": "Calendar time zone",
+			},
+		},
+		"required": []string{"summary"},
+	}
+
+	DeleteCalendarSchema = map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"calendarId": map[string]interface{}{
+				"type":        "string",
+				"description": "Calendar ID to delete",
+			},
+		},
+		"required": []string{"calendarId"},
+	}
+
+	FreeBusySchema = map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"timeMin": map[string]interface{}{
+				"type":        "string",
+				"description": "Lower bound for free/busy query (RFC3339 format)",
+			},
+			"timeMax": map[string]interface{}{
+				"type":        "string",
+				"description": "Upper bound for free/busy query (RFC3339 format)",
+			},
+			"calendarIds": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "string",
+				},
+				"description": "List of calendar IDs to query",
+			},
+		},
+		"required": []string{"timeMin", "timeMax", "calendarIds"},
 	}
 )

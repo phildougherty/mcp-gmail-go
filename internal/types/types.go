@@ -113,6 +113,135 @@ type GmailLabel struct {
 
 // Contact represents a contact
 type Contact struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	Phone        string `json:"phone,omitempty"`
+	Organization string `json:"organization,omitempty"`
+}
+
+// Calendar types
+
+// CalendarEvent represents a calendar event
+type CalendarEvent struct {
+	ID            string             `json:"id"`
+	Summary       string             `json:"summary"`
+	Description   string             `json:"description,omitempty"`
+	Location      string             `json:"location,omitempty"`
+	StartTime     string             `json:"startTime,omitempty"`
+	EndTime       string             `json:"endTime,omitempty"`
+	StartDate     string             `json:"startDate,omitempty"`
+	EndDate       string             `json:"endDate,omitempty"`
+	StartTimeZone string             `json:"startTimeZone,omitempty"`
+	EndTimeZone   string             `json:"endTimeZone,omitempty"`
+	AllDay        bool               `json:"allDay,omitempty"`
+	Creator       string             `json:"creator,omitempty"`
+	Organizer     string             `json:"organizer,omitempty"`
+	Status        string             `json:"status,omitempty"`
+	HTMLLink      string             `json:"htmlLink,omitempty"`
+	Created       string             `json:"created,omitempty"`
+	Updated       string             `json:"updated,omitempty"`
+	Attendees     []*EventAttendee   `json:"attendees,omitempty"`
+	Reminders     []*EventReminder   `json:"reminders,omitempty"`
+}
+
+// CreateEventArgs represents arguments for creating an event
+type CreateEventArgs struct {
+	Summary     string            `json:"summary"`
+	Description string            `json:"description,omitempty"`
+	Location    string            `json:"location,omitempty"`
+	StartTime   string            `json:"startTime,omitempty"`
+	EndTime     string            `json:"endTime,omitempty"`
+	StartDate   string            `json:"startDate,omitempty"`
+	EndDate     string            `json:"endDate,omitempty"`
+	TimeZone    string            `json:"timeZone,omitempty"`
+	AllDay      bool              `json:"allDay,omitempty"`
+	CalendarID  string            `json:"calendarId,omitempty"`
+	Attendees   []string          `json:"attendees,omitempty"`
+	Reminders   []*EventReminder  `json:"reminders,omitempty"`
+}
+
+// UpdateEventArgs represents arguments for updating an event
+type UpdateEventArgs struct {
+	EventID     string           `json:"eventId"`
+	CalendarID  string           `json:"calendarId,omitempty"`
+	Summary     string           `json:"summary,omitempty"`
+	Description string           `json:"description,omitempty"`
+	Location    string           `json:"location,omitempty"`
+	StartTime   string           `json:"startTime,omitempty"`
+	EndTime     string           `json:"endTime,omitempty"`
+	TimeZone    string           `json:"timeZone,omitempty"`
+	Attendees   []string         `json:"attendees,omitempty"`
+	Reminders   []*EventReminder `json:"reminders,omitempty"`
+}
+
+// ListEventsArgs represents arguments for listing events
+type ListEventsArgs struct {
+	CalendarID  string `json:"calendarId,omitempty"`
+	TimeMin     string `json:"timeMin,omitempty"`
+	TimeMax     string `json:"timeMax,omitempty"`
+	MaxResults  int    `json:"maxResults,omitempty"`
+	Query       string `json:"query,omitempty"`
+	OrderBy     string `json:"orderBy,omitempty"`
+}
+
+// DeleteEventArgs represents arguments for deleting an event
+type DeleteEventArgs struct {
+	CalendarID string `json:"calendarId,omitempty"`
+	EventID    string `json:"eventId"`
+}
+
+// EventAttendee represents an event attendee
+type EventAttendee struct {
+	Email          string `json:"email"`
+	DisplayName    string `json:"displayName,omitempty"`
+	ResponseStatus string `json:"responseStatus,omitempty"`
+	Organizer      bool   `json:"organizer,omitempty"`
+}
+
+// EventReminder represents an event reminder
+type EventReminder struct {
+	Method  string `json:"method"`
+	Minutes int    `json:"minutes"`
+}
+
+// Calendar represents a calendar
+type Calendar struct {
+	ID          string `json:"id"`
+	Summary     string `json:"summary"`
+	Description string `json:"description,omitempty"`
+	Primary     bool   `json:"primary,omitempty"`
+	AccessRole  string `json:"accessRole,omitempty"`
+	TimeZone    string `json:"timeZone,omitempty"`
+}
+
+// CreateCalendarArgs represents arguments for creating a calendar
+type CreateCalendarArgs struct {
+	Summary     string `json:"summary"`
+	Description string `json:"description,omitempty"`
+	TimeZone    string `json:"timeZone,omitempty"`
+}
+
+// FreeBusyArgs represents arguments for free/busy query
+type FreeBusyArgs struct {
+	TimeMin     string   `json:"timeMin"`
+	TimeMax     string   `json:"timeMax"`
+	CalendarIDs []string `json:"calendarIds"`
+}
+
+// FreeBusyResponse represents free/busy response
+type FreeBusyResponse struct {
+	TimeMin   string                       `json:"timeMin"`
+	TimeMax   string                       `json:"timeMax"`
+	Calendars map[string]*FreeBusyCalendar `json:"calendars"`
+}
+
+// FreeBusyCalendar represents free/busy info for a calendar
+type FreeBusyCalendar struct {
+	Busy []*TimePeriod `json:"busy"`
+}
+
+// TimePeriod represents a time period
+type TimePeriod struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
 }

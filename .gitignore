@@ -1,4 +1,6 @@
 # Binaries
+calendar-mcp-server
+.env
 gmail-mcp-server
 gmail-mcp-server-*
 *.exe

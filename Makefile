@@ -1,16 +1,18 @@
-# Gmail MCP Server Makefile
+# Google Calendar MCP Server Makefile
 
 .PHONY: build run test clean auth docker-build docker-run help
 
 # Variables
-BINARY_NAME=gmail-mcp-server
+BINARY_NAME=calendar-mcp-server
 MAIN_FILE=main.go
-DOCKER_IMAGE=gmail-mcp-server
+DOCKER_IMAGE=calendar-mcp-server
 DOCKER_TAG=latest
+REGISTRY=mcp.robotrad.io
+REGISTRY_IMAGE=$(REGISTRY)/$(DOCKER_IMAGE)
 
 # Default target
 help: ## Show this help message
-	@echo "Gmail MCP Server - Available commands:"
+	@echo "Google Calendar MCP Server - Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # Build targets
@@ -38,11 +40,11 @@ build-all: build-linux build-darwin build-windows ## Build for all platforms
 
 # Run targets
 run: build ## Build and run the server
-	@echo "Starting Gmail MCP Server..."
+	@echo "Starting Google Calendar MCP Server..."
 	@./$(BINARY_NAME)
 
 run-debug: build ## Build and run with debug logging
-	@echo "Starting Gmail MCP Server with debug logging..."
+	@echo "Starting Google Calendar MCP Server with debug logging..."
 	@./$(BINARY_NAME) -debug
 
 run-dev: ## Run without building (development)
@@ -80,7 +82,7 @@ docker-build: ## Build Docker image
 
 docker-run: docker-build ## Build and run Docker container
 	@echo "Running Docker container..."
-	@docker run -p 8080:8080 -v $(PWD)/gcp-oauth.keys.json:/root/.gmail-mcp/gcp-oauth.keys.json:ro $(DOCKER_IMAGE):$(DOCKER_TAG)
+	@docker run -p 8080:8080 -v $(PWD)/gcp-oauth.keys.json:/root/.calendar-mcp/gcp-oauth.keys.json:ro $(DOCKER_IMAGE):$(DOCKER_TAG)
 
 docker-compose-up: ## Start with docker-compose
 	@echo "Starting services with docker-compose..."
@@ -125,11 +127,11 @@ install: build ## Install binary to GOPATH/bin
 	@echo "Installation complete"
 
 setup-oauth: ## Instructions for setting up OAuth credentials
-	@echo "=== Gmail MCP Server OAuth Setup ==="
+	@echo "=== Google Calendar MCP Server OAuth Setup ==="
 	@echo ""
 	@echo "1. Go to Google Cloud Console: https://console.cloud.google.com/"
 	@echo "2. Create a new project or select an existing one"
-	@echo "3. Enable the Gmail API"
+	@echo "3. Enable the Google Calendar API"
 	@echo "4. Create credentials:"
 	@echo "   - Go to 'Credentials' in the sidebar"
 	@echo "   - Click 'Create Credentials' > 'OAuth client ID'"
@@ -160,3 +162,29 @@ setup: deps check-oauth ## Setup development environment
 start: check-oauth run ## Check OAuth and start server
 
 deploy: build-linux docker-build ## Build for production deployment
+
+# Registry targets
+docker-tag: ## Tag image for registry
+	@echo "Tagging image for registry..."
+	@docker tag $(DOCKER_IMAGE):$(DOCKER_TAG) $(REGISTRY_IMAGE):$(DOCKER_TAG)
+	@docker tag $(DOCKER_IMAGE):$(DOCKER_TAG) $(REGISTRY_IMAGE):latest
+	@echo "Tagged as $(REGISTRY_IMAGE):$(DOCKER_TAG) and $(REGISTRY_IMAGE):latest"
+
+docker-push: docker-build docker-tag ## Build, tag and push to registry
+	@echo "Pushing to registry $(REGISTRY)..."
+	@docker push $(REGISTRY_IMAGE):$(DOCKER_TAG)
+	@docker push $(REGISTRY_IMAGE):latest
+	@echo "Successfully pushed to $(REGISTRY_IMAGE)"
+
+docker-pull: ## Pull image from registry
+	@echo "Pulling from registry..."
+	@docker pull $(REGISTRY_IMAGE):$(DOCKER_TAG)
+
+docker-login: ## Login to registry
+	@echo "Logging into registry $(REGISTRY)..."
+	@docker login $(REGISTRY)
+
+registry-info: ## Show registry information
+	@echo "Registry: $(REGISTRY)"
+	@echo "Image: $(REGISTRY_IMAGE)"
+	@echo "Tag: $(DOCKER_TAG)"
