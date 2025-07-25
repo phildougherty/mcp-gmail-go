@@ -1,0 +1,33 @@
+# Binaries
+gmail-mcp-server
+gmail-mcp-server-*
+*.exe
+
+# Credentials and secrets
+gcp-oauth.keys.json
+credentials.json
+.gmail-mcp/
+
+# Go
+go.sum
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Build artifacts
+dist/
+build/

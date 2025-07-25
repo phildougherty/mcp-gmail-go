@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  gmail-mcp-server:
+    build: .
+    container_name: gmail-mcp-server
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./gcp-oauth.keys.json:/root/.gmail-mcp/gcp-oauth.keys.json:ro
+      - gmail-credentials:/root/.gmail-mcp
+    environment:
+      - GMAIL_OAUTH_PATH=/root/.gmail-mcp/gcp-oauth.keys.json
+      - GMAIL_CREDENTIALS_PATH=/root/.gmail-mcp/credentials.json
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  gmail-credentials:
+    driver: local
